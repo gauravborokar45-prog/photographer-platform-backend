@@ -1,30 +1,39 @@
 package com.photographer.platform.user.service.impl;
 
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-
 import com.photographer.platform.exception.BadRequestException;
+import com.photographer.platform.exception.ResourceNotFoundException;
+import com.photographer.platform.security.jwt.JwtService;
+import com.photographer.platform.security.service.CustomUserDetails;
 import com.photographer.platform.user.dto.request.LoginRequest;
 import com.photographer.platform.user.dto.request.RegisterRequest;
+import com.photographer.platform.user.dto.response.LoginResponse;
 import com.photographer.platform.user.dto.response.UserResponse;
 import com.photographer.platform.user.entity.User;
 import com.photographer.platform.user.repository.UserRepository;
 import com.photographer.platform.user.service.UserService;
-import com.photographer.platform.exception.ResourceNotFoundException;
-import com.photographer.platform.exception.UnauthorizedException;
+
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 
 @Service
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
 
     public UserServiceImpl(UserRepository userRepository,
-                           PasswordEncoder passwordEncoder) {
+                           PasswordEncoder passwordEncoder,
+                           AuthenticationManager authenticationManager,
+                           JwtService jwtService) {
 
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-
+        this.authenticationManager = authenticationManager;
+        this.jwtService = jwtService;
     }
 
     @Override
@@ -35,7 +44,7 @@ public class UserServiceImpl implements UserService {
         }
 
         if (userRepository.existsByPhone(request.getPhone())) {
-            throw new BadRequestException("Phone number already registered.");
+            throw new BadRequestException("Phone already registered.");
         }
 
         User user = new User();
@@ -43,56 +52,56 @@ public class UserServiceImpl implements UserService {
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
-
-        // Encrypt Password
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-
         user.setRole(request.getRole());
-
         user.setActive(true);
         user.setEmailVerified(false);
 
         User savedUser = userRepository.save(user);
 
-        UserResponse response = new UserResponse();
-
-        response.setId(savedUser.getId());
-        response.setFullName(savedUser.getFullName());
-        response.setEmail(savedUser.getEmail());
-        response.setPhone(savedUser.getPhone());
-        response.setRole(savedUser.getRole());
-        response.setActive(savedUser.isActive());
-        response.setEmailVerified(savedUser.isEmailVerified());
-
-        return response;
-
+        return UserResponse.builder()
+                .id(savedUser.getId())
+                .fullName(savedUser.getFullName())
+                .email(savedUser.getEmail())
+                .phone(savedUser.getPhone())
+                .role(savedUser.getRole())
+                .active(savedUser.isActive())
+                .emailVerified(savedUser.isEmailVerified())
+                .build();
     }
 
     @Override
-    public UserResponse login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request) {
 
-        // Find user by email
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getEmail(),
+                        request.getPassword()
+                )
+        );
+
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() ->
                         new ResourceNotFoundException("User not found"));
 
-        // Verify password
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new UnauthorizedException("Invalid email or password");
-        }
+        String token = jwtService.generateToken(
+                new CustomUserDetails(user)
+        );
 
-        // Create response
-        UserResponse response = new UserResponse();
+        UserResponse userResponse = UserResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .role(user.getRole())
+                .active(user.isActive())
+                .emailVerified(user.isEmailVerified())
+                .build();
 
-        response.setId(user.getId());
-        response.setFullName(user.getFullName());
-        response.setEmail(user.getEmail());
-        response.setPhone(user.getPhone());
-        response.setRole(user.getRole());
-        response.setActive(user.isActive());
-        response.setEmailVerified(user.isEmailVerified());
-
-        return response;
+        return LoginResponse.builder()
+                .accessToken(token)
+                .tokenType("Bearer")
+                .user(userResponse)
+                .build();
     }
-
 }
