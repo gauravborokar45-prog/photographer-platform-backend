@@ -3,13 +3,13 @@ package com.photographer.platform.photographer.service.impl;
 import com.photographer.platform.exception.BadRequestException;
 import com.photographer.platform.exception.ResourceNotFoundException;
 import com.photographer.platform.photographer.dto.request.CreatePhotographerRequest;
+import com.photographer.platform.photographer.dto.request.UpdatePhotographerRequest;
 import com.photographer.platform.photographer.dto.response.PhotographerResponse;
 import com.photographer.platform.photographer.entity.Photographer;
 import com.photographer.platform.photographer.repository.PhotographerRepository;
 import com.photographer.platform.photographer.service.PhotographerService;
 import com.photographer.platform.user.entity.User;
 import com.photographer.platform.user.repository.UserRepository;
-
 import org.springframework.stereotype.Service;
 
 @Service
@@ -49,28 +49,12 @@ public class PhotographerServiceImpl implements PhotographerService {
         photographer.setState(request.getState());
         photographer.setCountry(request.getCountry());
         photographer.setStartingPrice(request.getStartingPrice());
-
-        photographer.setVerified(false);
         photographer.setProfileImage(null);
+        photographer.setVerified(false);
 
         Photographer saved = photographerRepository.save(photographer);
 
-        return PhotographerResponse.builder()
-                .id(saved.getId())
-                .userId(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .phone(user.getPhone())
-                .studioName(saved.getStudioName())
-                .bio(saved.getBio())
-                .experience(saved.getExperience())
-                .city(saved.getCity())
-                .state(saved.getState())
-                .country(saved.getCountry())
-                .startingPrice(saved.getStartingPrice())
-                .profileImage(saved.getProfileImage())
-                .verified(saved.isVerified())
-                .build();
+        return mapToResponse(saved);
     }
 
     @Override
@@ -83,6 +67,42 @@ public class PhotographerServiceImpl implements PhotographerService {
         Photographer photographer = photographerRepository.findByUser(user)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Photographer profile not found"));
+
+        return mapToResponse(photographer);
+    }
+
+    @Override
+    public PhotographerResponse updateProfile(
+            String email,
+            UpdatePhotographerRequest request) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found"));
+
+        Photographer photographer = photographerRepository.findByUser(user)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Photographer profile not found"));
+
+        photographer.setStudioName(request.getStudioName());
+        photographer.setBio(request.getBio());
+        photographer.setExperience(request.getExperience());
+        photographer.setCity(request.getCity());
+        photographer.setState(request.getState());
+        photographer.setCountry(request.getCountry());
+        photographer.setStartingPrice(request.getStartingPrice());
+
+        Photographer updated = photographerRepository.save(photographer);
+
+        return mapToResponse(updated);
+    }
+
+    /**
+     * Convert Entity to Response DTO
+     */
+    private PhotographerResponse mapToResponse(Photographer photographer) {
+
+        User user = photographer.getUser();
 
         return PhotographerResponse.builder()
                 .id(photographer.getId())
