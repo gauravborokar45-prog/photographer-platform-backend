@@ -8,6 +8,7 @@ public class PhotographerPlatformBackendApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(PhotographerPlatformBackendApplication.class, args);
+
 	}
 
 }
