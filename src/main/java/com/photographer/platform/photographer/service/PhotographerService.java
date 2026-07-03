@@ -1,6 +1,7 @@
 package com.photographer.platform.photographer.service;
 
 import com.photographer.platform.photographer.dto.request.CreatePhotographerRequest;
+import com.photographer.platform.photographer.dto.request.UpdatePhotographerRequest;
 import com.photographer.platform.photographer.dto.response.PhotographerResponse;
 
 public interface PhotographerService {
@@ -12,6 +13,11 @@ public interface PhotographerService {
 
     PhotographerResponse getProfile(
             String email
+    );
+
+    PhotographerResponse updateProfile(
+            String email,
+            UpdatePhotographerRequest request
     );
 
 }
